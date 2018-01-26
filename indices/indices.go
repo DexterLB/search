@@ -1,12 +1,10 @@
 package indices
 
 import (
-	"compress/gzip"
-	"encoding/gob"
 	"fmt"
 	"io"
-	"os"
 
+	"github.com/DexterLB/search/serialisation"
 	"github.com/DexterLB/search/trie"
 )
 
@@ -85,44 +83,19 @@ func (t *TotalIndex) LoopOverDocumentPostings(docID int, operation func(posting 
 }
 
 func (t *TotalIndex) SerialiseTo(w io.Writer) error {
-	gzWriter := gzip.NewWriter(w)
-	encoder := gob.NewEncoder(gzWriter)
-	err := encoder.Encode(t)
-	if err != nil {
-		return err
-	}
-	return gzWriter.Close()
+	return serialisation.SerialiseTo(t, w)
 }
 
 func (t *TotalIndex) SerialiseToFile(filename string) error {
-	f, err := os.Create(filename)
-	if err != nil {
-		return fmt.Errorf("unable to open file: %s", err)
-	}
-	return t.SerialiseTo(f)
+	return serialisation.SerialiseToFile(t, filename)
 }
 
 func (t *TotalIndex) DeserialiseFrom(r io.Reader) error {
-	gzReader, err := gzip.NewReader(r)
-	if err != nil {
-		return err
-	}
-
-	decoder := gob.NewDecoder(gzReader)
-	err = decoder.Decode(t)
-	if err != nil {
-		return err
-	}
-
-	return gzReader.Close()
+	return serialisation.DeserialiseFrom(t, r)
 }
 
 func (t *TotalIndex) DeserialiseFromFile(filename string) error {
-	f, err := os.Open(filename)
-	if err != nil {
-		return fmt.Errorf("unable to open file: %s", err)
-	}
-	return t.DeserialiseFrom(f)
+	return serialisation.DeserialiseFromFile(t, filename)
 }
 
 func (t *TotalIndex) Verify() {
