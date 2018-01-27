@@ -3,6 +3,10 @@ package trie
 type Dictionary struct {
 	Trie Trie
 	Size int32
+
+	// if the dictionary is Closed, getting a word that's not already in the
+	// dictionary will yield -1
+	Closed bool
 }
 
 type BiDictionary struct {
@@ -13,12 +17,21 @@ type BiDictionary struct {
 
 func NewDictionary() *Dictionary {
 	return &Dictionary{
-		Trie: *New(),
-		Size: 0,
+		Trie:   *New(),
+		Size:   0,
+		Closed: false,
 	}
 }
 
 func (d *Dictionary) Get(word []byte) int32 {
+	if d.Closed {
+		idP := d.Trie.Get(word)
+		if idP == nil {
+			return -1
+		}
+		return *idP
+	}
+
 	id := d.Trie.GetOrPut(word, d.Size)
 	if id == d.Size {
 		d.Size += 1

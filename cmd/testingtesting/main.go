@@ -112,6 +112,8 @@ func mainCommand(c *cli.Context) {
 
 		index1.ExtendInverse(len(index2.Inverse.PostingLists))
 
+		index2.Dictionary.Closed = true
+		index2.ClassNames.Closed = true
 		err = index2.SerialiseToFile(c.String("split"))
 		if err != nil {
 			log.Fatalf("Unable to serialise index: %s", err)
@@ -120,6 +122,8 @@ func mainCommand(c *cli.Context) {
 
 	index1.Verify()
 
+	index1.Dictionary.Closed = true
+	index1.ClassNames.Closed = true
 	err = index1.SerialiseToFile(c.String("output"))
 	if err != nil {
 		log.Fatalf("Unable to serialise index: %s", err)

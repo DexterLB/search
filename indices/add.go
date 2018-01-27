@@ -64,13 +64,16 @@ func (t *TotalIndex) Add(d *InfoAndTerms) {
 	var sortedTermsAndCounts []TermAndCount
 
 	d.TermsAndCounts.Walk(func(term []byte, count int32) {
-		sortedTermsAndCounts = append(
-			sortedTermsAndCounts,
-			TermAndCount{
-				TermID: t.Dictionary.Get(term),
-				Count:  count,
-			},
-		)
+		id := t.Dictionary.Get(term)
+		if id != -1 {
+			sortedTermsAndCounts = append(
+				sortedTermsAndCounts,
+				TermAndCount{
+					TermID: id,
+					Count:  count,
+				},
+			)
+		}
 	})
 
 	sort.Slice(
