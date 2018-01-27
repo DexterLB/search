@@ -58,11 +58,6 @@ func main() {
 					Value: "/tmp/foo.xml",
 				},
 				cli.IntFlag{
-					Name:  "features-per-class, f",
-					Usage: "Number of feature terms to select for each class",
-					Value: 20,
-				},
-				cli.IntFlag{
 					Name:  "k",
 					Usage: "Number of neighbours to consider for classification",
 					Value: 3,
@@ -93,6 +88,11 @@ func main() {
 					Name:  "k",
 					Usage: "Number of neighbours to consider for classification",
 					Value: 3,
+				},
+				cli.IntFlag{
+					Name:  "features-per-class, f",
+					Usage: "Number of feature terms to select for each class",
+					Value: 20,
 				},
 			},
 		},

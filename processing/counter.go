@@ -27,7 +27,7 @@ func Count(doc *documents.Document, tokeniser Tokeniser) *indices.InfoAndTerms {
 	idoc.Name = doc.Title
 	idoc.Classes = doc.Classes
 
-	tokeniser.GetTerms(doc.Body, func(term string) {
+	tokeniser.GetTerms(doc.Title+" "+doc.Body, func(term string) {
 		idoc.TermsAndCounts.PutLambda(
 			[]byte(term),
 			func(x int32) int32 { return x + 1 },
