@@ -29,8 +29,8 @@ type TotalIndex struct {
 	Forward    Index
 	Inverse    Index
 	Documents  []DocumentInfo
-	Dictionary trie.BiDictionary // bidictionary is better for debugging
-	ClassNames trie.BiDictionary
+	Dictionary *trie.BiDictionary // bidictionary is better for debugging
+	ClassNames *trie.BiDictionary
 }
 
 type DocumentInfo struct {
@@ -41,13 +41,35 @@ type DocumentInfo struct {
 
 func NewTotalIndex() *TotalIndex {
 	return &TotalIndex{
-		Dictionary: *trie.NewBiDictionary(),
-		ClassNames: *trie.NewBiDictionary(),
+		Dictionary: trie.NewBiDictionary(),
+		ClassNames: trie.NewBiDictionary(),
+	}
+}
+
+// NewOffsetTotalIndex creates a TotalIndex with the same dictionaries as the first one
+func NewOffsetTotalIndex(other *TotalIndex) *TotalIndex {
+	ni := NewTotalIndex()
+	ni.Dictionary = other.Dictionary
+	ni.ClassNames = other.ClassNames
+	ni.ExtendInverse(len(other.Inverse.PostingLists))
+
+	return ni
+}
+
+func (t *TotalIndex) ExtendInverse(newLength int) {
+	for i := len(t.Inverse.PostingLists); i < newLength; i++ {
+		t.Inverse.PostingLists = append(t.Inverse.PostingLists, PostingList{
+			FirstIndex: -1,
+			LastIndex:  -1,
+		})
 	}
 }
 
 func (t *TotalIndex) LoopOverTermPostings(termID int, operation func(posting *Posting)) {
 	postingList := &t.Inverse.PostingLists[termID]
+	if postingList.FirstIndex == -1 {
+		return
+	}
 
 	for posting := &t.Inverse.Postings[postingList.FirstIndex]; ; posting = &t.Inverse.Postings[posting.NextPostingIndex] {
 		operation(posting)
@@ -68,6 +90,9 @@ func (t *TotalIndex) LoopOverDocumentPostings(docID int, operation func(posting 
 	}
 
 	postingList := &t.Forward.PostingLists[docID]
+	if postingList.FirstIndex == -1 {
+		return
+	}
 
 	if postingList.FirstIndex == -1 {
 		fmt.Printf("DocId has first index -1: %d, Postinglist: %v\n", docID, postingList)
@@ -130,8 +155,5 @@ func (t *TotalIndex) Verify() {
 			}
 			lastPosting = posting
 		})
-		if lastPosting == nil {
-			panic(fmt.Sprintf("term %d has no documents", termID))
-		}
 	}
 }

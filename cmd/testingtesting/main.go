@@ -41,6 +41,15 @@ func main() {
 			Name:  "classless, n",
 			Usage: "Include documents which have no assigned class",
 		},
+		cli.StringFlag{
+			Name:  "split",
+			Usage: "Split documents into two indices (specify second index as an argument to this option)",
+			Value: "",
+		},
+		cli.StringFlag{
+			Name:  "split-size",
+			Usage: "Size of first batch of documents (second will be filled with the rest)",
+		},
 	}
 
 	app.Action = mainCommand
@@ -88,11 +97,30 @@ func mainCommand(c *cli.Context) {
 		close(infosAndTerms)
 	}()
 
-	index := indices.NewTotalIndex()
-	index.AddMany(infosAndTerms)
-	index.Verify()
+	index1 := indices.NewTotalIndex()
 
-	err = index.SerialiseToFile(c.String("output"))
+	if c.String("split") != "" {
+		index1.AddUpTo(infosAndTerms, c.Int("split-size"))
+	} else {
+		index1.AddMany(infosAndTerms)
+	}
+
+	if c.String("split") != "" {
+		index2 := indices.NewOffsetTotalIndex(index1)
+		index2.AddMany(infosAndTerms)
+		index2.Verify()
+
+		index1.ExtendInverse(len(index2.Inverse.PostingLists))
+
+		err = index2.SerialiseToFile(c.String("split"))
+		if err != nil {
+			log.Fatalf("Unable to serialise index: %s", err)
+		}
+	}
+
+	index1.Verify()
+
+	err = index1.SerialiseToFile(c.String("output"))
 	if err != nil {
 		log.Fatalf("Unable to serialise index: %s", err)
 	}

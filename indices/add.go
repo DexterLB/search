@@ -40,7 +40,18 @@ func (d *InfoAndTerms) Print() {
 }
 
 func (t *TotalIndex) AddMany(infosAndTerms <-chan *InfoAndTerms) {
+	t.AddUpTo(infosAndTerms, -1)
+}
+
+func (t *TotalIndex) AddUpTo(infosAndTerms <-chan *InfoAndTerms, limit int) {
 	for it := range infosAndTerms {
+		if limit > 0 {
+			limit--
+		}
+		if limit == 0 {
+			return
+		}
+
 		if it.TermsAndCounts.Empty() {
 			log.Printf("Document %s is empty", it.Name)
 		} else {
@@ -117,12 +128,14 @@ func (t *TotalIndex) Add(d *InfoAndTerms) {
 		//Inverse indexing
 		if int32(len(t.Inverse.PostingLists)) > term.TermID {
 			// already in
-			if t.Inverse.PostingLists[term.TermID].FirstIndex == -1 {
-				panic(fmt.Sprintf("lenPostingList: %d, lenPostings: %d, termId: %d\n", len(t.Inverse.PostingLists), len(t.Inverse.Postings), term.TermID))
-			}
 
 			t.Inverse.Postings = append(t.Inverse.Postings, Posting{Index: documentIndex, Count: term.Count, NextPostingIndex: -1})
-			t.Inverse.Postings[t.Inverse.PostingLists[term.TermID].LastIndex].NextPostingIndex = int32(len(t.Inverse.Postings)) - 1
+			if t.Inverse.PostingLists[term.TermID].FirstIndex == -1 {
+				// posting list is empty
+				t.Inverse.PostingLists[term.TermID].FirstIndex = int32(len(t.Inverse.Postings)) - 1
+			} else {
+				t.Inverse.Postings[t.Inverse.PostingLists[term.TermID].LastIndex].NextPostingIndex = int32(len(t.Inverse.Postings)) - 1
+			}
 			t.Inverse.PostingLists[term.TermID].LastIndex = int32(len(t.Inverse.Postings)) - 1
 		} else if int32(len(t.Inverse.PostingLists)) == term.TermID {
 			//PL -> [f:0 l:0]
@@ -130,7 +143,7 @@ func (t *TotalIndex) Add(d *InfoAndTerms) {
 			t.Inverse.PostingLists = append(t.Inverse.PostingLists, PostingList{FirstIndex: int32(len(t.Inverse.Postings)), LastIndex: int32(len(t.Inverse.Postings))})
 			t.Inverse.Postings = append(t.Inverse.Postings, Posting{Index: documentIndex, Count: term.Count, NextPostingIndex: -1})
 		} else {
-			panic(fmt.Sprintf("lenPostingList: %d, lenPostings: %d, termId: %d\n", len(t.Inverse.PostingLists), len(t.Inverse.Postings), term.TermID))
+			panic(fmt.Sprintf("lenPostingLists: %d, lenPostings: %d, termId: %d\n", len(t.Inverse.PostingLists), len(t.Inverse.Postings), term.TermID))
 		}
 
 	}
