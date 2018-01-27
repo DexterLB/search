@@ -39,9 +39,63 @@ func main() {
 				},
 			},
 		},
+		{
+			Name:   "test",
+			Usage:  "perform a test with a split index",
+			Action: test,
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  "training-set",
+					Usage: "Training set index",
+					Value: "/tmp/index.gob.gz",
+				},
+				cli.StringFlag{
+					Name:  "test-set",
+					Usage: "Test set index",
+					Value: "/tmp/index_test.gob.gz",
+				},
+				cli.IntFlag{
+					Name:  "features-per-class, f",
+					Usage: "Number of feature terms to select for each class",
+					Value: 20,
+				},
+				cli.IntFlag{
+					Name:  "k",
+					Usage: "Number of neighbours to consider for classification",
+					Value: 3,
+				},
+			},
+		},
 	}
 
 	app.Run(os.Args)
+}
+
+func test(c *cli.Context) {
+	trainingSet := indices.NewTotalIndex()
+	err := trainingSet.DeserialiseFromFile(c.String("training-set"))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	testSet := indices.NewTotalIndex()
+	err = testSet.DeserialiseFromFile(c.String("test-set"))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	log.Printf("begin preprocessing")
+	ki := knn.Preprocess(trainingSet, int32(c.Int("features-per-class")), runtime.NumCPU())
+	log.Printf("end preprocessing")
+
+	numCPU := runtime.NumCPU()
+	k := c.Int("k")
+
+	classifier := func(document *knn.DocumentIndex) []int32 {
+		return ki.ClassifyForward(document, k, numCPU)
+	}
+
+	knn.InteractiveTest(classifier, testSet)
 }
 
 func preprocess(c *cli.Context) {

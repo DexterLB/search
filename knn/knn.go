@@ -124,18 +124,26 @@ func (k *KNNInfo) distance(a *DocumentIndex, b *DocumentIndex) float64 {
 		for postingBindex >= 0 && b.Postings[postingBindex].Index < featureID {
 			postingBindex = b.Postings[postingBindex].NextPostingIndex
 		}
-		postingA := &a.Postings[postingAindex]
-		postingB := &b.Postings[postingBindex]
+
+		if postingAindex == -1 && postingBindex == -1 {
+			break
+		}
 
 		termA := float64(0)
 		termB := float64(0)
 
-		if postingA.Index == featureID {
-			termA = float64(postingA.Count)
+		if postingAindex >= 0 {
+			postingA := &a.Postings[postingAindex]
+			if postingA.Index == featureID {
+				termA = float64(postingA.Count)
+			}
 		}
 
-		if postingB.Index == featureID {
-			termB = float64(postingB.Count)
+		if postingBindex >= 0 {
+			postingB := &b.Postings[postingBindex]
+			if postingB.Index == featureID {
+				termB = float64(postingB.Count)
+			}
 		}
 
 		dist += square(termA - termB)

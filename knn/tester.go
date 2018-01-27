@@ -18,7 +18,7 @@ func InteractiveTest(classifier func(*DocumentIndex) []int32, testSet *indices.T
 			PostingList: &testSet.Forward.PostingLists[docID],
 		})
 
-		total.Add(Compare(actualClasses, resultClasses, &testSet.ClassNames))
+		total.Add(Compare(actualClasses, resultClasses, testSet.ClassNames))
 	}
 
 	log.Printf("totals: %s", total)
@@ -39,8 +39,8 @@ func (t *TestResult) Recall() float64 {
 	return float64(t.RecallSum) / float64(t.RecallDivisor)
 }
 
-func (t *TestResult) Add(other *testResult) {
-	t.PrecisionSum += other.PresicionSum
+func (t *TestResult) Add(other *TestResult) {
+	t.PrecisionSum += other.PrecisionSum
 	t.RecallSum += other.RecallSum
 	t.PrecisionDivisor += other.PrecisionDivisor
 	t.RecallDivisor += other.RecallDivisor
@@ -66,9 +66,8 @@ func Compare(actualClasses []int32, resultClasses []int32, classDic *trie.BiDict
 	for _, rc := range resultClasses {
 		if _, ok := actualSet[rc]; ok {
 			tr.PrecisionSum += 1
-		} else {
-			tr.PrecisionDivisor += 1
 		}
+		tr.PrecisionDivisor += 1
 	}
 
 	log.Printf("actual: %s", strings.Join(stringifyClasses(actualClasses, classDic), ", "))
