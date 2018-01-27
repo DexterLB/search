@@ -175,3 +175,13 @@ func (t *TotalIndex) Verify() {
 		panic("forward and inverse have different number of postings")
 	}
 }
+
+func (t *TotalIndex) StringifyClasses(classes []int32) []string {
+	s := make([]string, len(classes))
+
+	for i := range classes {
+		s[i] = string(t.ClassNames.GetInverse(classes[i]))
+	}
+
+	return s
+}
