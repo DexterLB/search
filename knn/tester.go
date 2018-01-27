@@ -16,6 +16,7 @@ func InteractiveTest(classifier func(*DocumentIndex) []int32, testSet *indices.T
 		resultClasses := classifier(&DocumentIndex{
 			Postings:    testSet.Forward.Postings,
 			PostingList: &testSet.Forward.PostingLists[docID],
+			Length:      testSet.Documents[docID].Length,
 		})
 
 		total.Add(Compare(actualClasses, resultClasses, testSet.ClassNames))

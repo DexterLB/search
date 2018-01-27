@@ -12,17 +12,21 @@ import (
 type DocumentIndex struct {
 	Postings    []indices.Posting
 	PostingList *indices.PostingList
+	Length      int32
 }
 
 type KNNInfo struct {
-	Features []int32
-	Index    *indices.TotalIndex
+	FeatureIDFs []float64
+	Features    []int32
+	Index       *indices.TotalIndex
 }
 
 func Preprocess(ti *indices.TotalIndex, termsPerClass int32, parallelWorkers int) *KNNInfo {
+	features := featureselection.ChiSquared(ti, termsPerClass, parallelWorkers)
 	return &KNNInfo{
-		Features: featureselection.ChiSquared(ti, termsPerClass, parallelWorkers),
-		Index:    ti,
+		Features:    features,
+		FeatureIDFs: computeIDFs(features, ti),
+		Index:       ti,
 	}
 }
 
@@ -102,6 +106,7 @@ func (k *KNNInfo) forwardDistances(document *DocumentIndex, parallelWorkers int,
 					Distance: k.distance(document, &DocumentIndex{
 						Postings:    k.Index.Forward.Postings,
 						PostingList: &k.Index.Forward.PostingLists[docID],
+						Length:      k.Index.Documents[docID].Length,
 					}),
 					DocumentID: docID,
 				}
@@ -117,7 +122,7 @@ func (k *KNNInfo) distance(a *DocumentIndex, b *DocumentIndex) float64 {
 
 	dist := float64(0)
 
-	for _, featureID := range k.Features {
+	for featureIndex, featureID := range k.Features {
 		for postingAindex >= 0 && a.Postings[postingAindex].Index < featureID {
 			postingAindex = a.Postings[postingAindex].NextPostingIndex
 		}
@@ -135,14 +140,14 @@ func (k *KNNInfo) distance(a *DocumentIndex, b *DocumentIndex) float64 {
 		if postingAindex >= 0 {
 			postingA := &a.Postings[postingAindex]
 			if postingA.Index == featureID {
-				termA = float64(postingA.Count)
+				termA = k.value(featureIndex, postingA.Count, a)
 			}
 		}
 
 		if postingBindex >= 0 {
 			postingB := &b.Postings[postingBindex]
 			if postingB.Index == featureID {
-				termB = float64(postingB.Count)
+				termB = k.value(featureIndex, postingB.Count, b)
 			}
 		}
 
@@ -150,6 +155,13 @@ func (k *KNNInfo) distance(a *DocumentIndex, b *DocumentIndex) float64 {
 	}
 
 	return dist
+}
+
+func (k *KNNInfo) value(featureIndex int, count int32, document *DocumentIndex) float64 {
+	tf := float64(count) / float64(document.Length)
+	idf := k.FeatureIDFs[featureIndex]
+
+	return tf * idf
 }
 
 func (k *KNNInfo) distanceToAll(document *DocumentIndex, distances chan<- DocumentDistance) {
@@ -173,7 +185,7 @@ func (k *KNNInfo) distanceToAll(document *DocumentIndex, distances chan<- Docume
 		for i := 0; i < numFeatures; i += 1 {
 			posting := &postings[currentPostingIndices[i]]
 			if posting.Index == docIndex {
-				distance += square(float64(posting.Count) - docVec[i])
+				distance += square(k.value(i, posting.Count, nil) - docVec[i])
 
 				currentPostingIndices[i] = posting.NextPostingIndex
 			}
@@ -201,11 +213,24 @@ func (k *KNNInfo) documentVector(document *DocumentIndex) []float64 {
 		}
 
 		if document.Postings[postingIndex].Index == featureIndex {
-			docVec[i] = float64(document.Postings[postingIndex].Count)
+			docVec[i] = k.value(i, document.Postings[postingIndex].Count, document)
 		}
 	}
 
 	return docVec
+}
+
+func computeIDFs(featureIDs []int32, ti *indices.TotalIndex) []float64 {
+	IDFs := make([]float64, len(featureIDs))
+	for i := range IDFs {
+		docCount := 0
+		ti.LoopOverTermPostings(int(featureIDs[i]), func(posting *indices.Posting) {
+			docCount += 1
+		})
+		IDFs[i] = math.Log(float64(len(ti.Forward.PostingLists)) / float64(docCount))
+	}
+
+	return IDFs
 }
 
 func square(x float64) float64 {

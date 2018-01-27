@@ -33,6 +33,7 @@ func Count(doc *documents.Document, tokeniser Tokeniser) *indices.InfoAndTerms {
 			func(x int32) int32 { return x + 1 },
 			1,
 		)
+		idoc.Length += 1
 	})
 
 	return idoc
