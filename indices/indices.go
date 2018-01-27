@@ -142,9 +142,23 @@ func (t *TotalIndex) Verify() {
 		}
 	}
 
+	forwardIndices := make([]int32, len(t.Forward.PostingLists))
+	for i := range forwardIndices {
+		forwardIndices[i] = t.Forward.PostingLists[i].FirstIndex
+	}
+
 	for termID := range t.Inverse.PostingLists {
 		var lastPosting *Posting
 		t.LoopOverTermPostings(termID, func(posting *Posting) {
+			if t.Forward.Postings[forwardIndices[posting.Index]].Index > int32(termID) {
+				panic("found a posting that's in inverse but not in forward")
+			} else if t.Forward.Postings[forwardIndices[posting.Index]].Index == int32(termID) {
+				if t.Forward.Postings[forwardIndices[posting.Index]].Count != posting.Count {
+					panic("found different counts in forward and inverse indices")
+				}
+				forwardIndices[posting.Index] = t.Forward.Postings[forwardIndices[posting.Index]].NextPostingIndex
+			}
+
 			if lastPosting != nil {
 				if posting.Index <= lastPosting.Index {
 					panic(fmt.Sprintf(
@@ -155,5 +169,9 @@ func (t *TotalIndex) Verify() {
 			}
 			lastPosting = posting
 		})
+	}
+
+	if len(t.Forward.Postings) != len(t.Inverse.Postings) {
+		panic("forward and inverse have different number of postings")
 	}
 }

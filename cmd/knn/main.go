@@ -72,6 +72,7 @@ func main() {
 }
 
 func test(c *cli.Context) {
+	numCPU := runtime.NumCPU()
 	trainingSet := indices.NewTotalIndex()
 	err := trainingSet.DeserialiseFromFile(c.String("training-set"))
 	if err != nil {
@@ -85,26 +86,26 @@ func test(c *cli.Context) {
 	}
 
 	log.Printf("begin preprocessing")
-	ki := knn.Preprocess(trainingSet, int32(c.Int("features-per-class")), runtime.NumCPU())
+	ki := knn.Preprocess(trainingSet, int32(c.Int("features-per-class")), numCPU)
 	log.Printf("end preprocessing")
 
-	numCPU := runtime.NumCPU()
 	k := c.Int("k")
 
 	classifier := func(document *knn.DocumentIndex) []int32 {
 		forward := ki.ClassifyForward(document, k, numCPU)
-		inverse := ki.ClassifyInverse(document, k)
+		// inverse := ki.ClassifyInverse(document, k)
 
-		if len(forward) != len(inverse) {
-			panic("different number of classes for forward and inverse classifier")
-		}
-		for i := range forward {
-			if forward[i] != inverse[i] {
-				panic("different classes for forward and inverse classifier")
-			}
-		}
+		// if len(forward) != len(inverse) {
+		// 	panic("different number of classes for forward and inverse classifier")
+		// }
+		// for i := range forward {
+		// 	if forward[i] != inverse[i] {
+		// 		panic("different classes for forward and inverse classifier")
+		// 	}
+		// }
 
-		return inverse
+		// return inverse
+		return forward
 	}
 
 	knn.InteractiveTest(classifier, testSet)
