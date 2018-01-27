@@ -40,6 +40,13 @@ func (t *TestResult) Recall() float64 {
 	return float64(t.RecallSum) / float64(t.RecallDivisor)
 }
 
+func (t *TestResult) FScore() float64 {
+	if t.Precision()+t.Recall() == 0 {
+		return 0
+	}
+	return (t.Precision() * t.Recall()) / (t.Precision() + t.Recall()) * 2
+}
+
 func (t *TestResult) Add(other *TestResult) {
 	t.PrecisionSum += other.PrecisionSum
 	t.RecallSum += other.RecallSum
@@ -48,7 +55,7 @@ func (t *TestResult) Add(other *TestResult) {
 }
 
 func (t *TestResult) String() string {
-	return fmt.Sprintf("precision: %.2f, recall: %.2f", t.Precision(), t.Recall())
+	return fmt.Sprintf("precision: %.2f, recall: %.2f, fscore: %.2f", t.Precision(), t.Recall(), t.FScore())
 }
 
 func Compare(actualClasses []int32, resultClasses []int32, classDic *trie.BiDictionary) *TestResult {

@@ -1,6 +1,8 @@
 package knn
 
 import (
+	"fmt"
+	"log"
 	"math"
 	"sort"
 
@@ -44,6 +46,15 @@ func (k *KNNInfo) ClassifyForward(document *DocumentIndex, bestK int, parallelWo
 	return k.bestClasses(distances, bestK)
 }
 
+func (k *KNNInfo) ClassifyInverse(document *DocumentIndex, bestK int) []int32 {
+	distances := make(chan *DocumentDistance, 200)
+	go func() {
+		k.distanceToAll(document, distances)
+		close(distances)
+	}()
+	return k.bestClasses(distances, bestK)
+}
+
 func (k *KNNInfo) bestClasses(distances <-chan *DocumentDistance, bestK int) []int32 {
 	var allDistances []*DocumentDistance
 	for dist := range distances {
@@ -56,7 +67,16 @@ func (k *KNNInfo) bestClasses(distances <-chan *DocumentDistance, bestK int) []i
 		return allDistances[i].Distance < allDistances[j].Distance
 	})
 
+	if bestK > len(allDistances) {
+		bestK = len(allDistances)
+	}
+
 	bestDistances := allDistances[0:bestK]
+	bestDocs := make([]string, len(bestDistances))
+	for i := range bestDistances {
+		bestDocs[i] = fmt.Sprintf("%d(%.2f)", bestDistances[i].DocumentID, bestDistances[i].Distance)
+	}
+	log.Printf("closest docs: %v", bestDocs)
 
 	classHistogram := make(map[int32]int)
 	for i := range bestDistances {
@@ -160,11 +180,11 @@ func (k *KNNInfo) distance(a *DocumentIndex, b *DocumentIndex) float64 {
 func (k *KNNInfo) value(featureIndex int, count int32, document *DocumentIndex) float64 {
 	tf := float64(count) / float64(document.Length)
 	idf := k.FeatureIDFs[featureIndex]
-
+	return float64(count)
 	return tf * idf
 }
 
-func (k *KNNInfo) distanceToAll(document *DocumentIndex, distances chan<- DocumentDistance) {
+func (k *KNNInfo) distanceToAll(document *DocumentIndex, distances chan<- *DocumentDistance) {
 	postingLists := k.Index.Inverse.PostingLists
 	postings := k.Index.Inverse.Postings
 
@@ -181,25 +201,43 @@ func (k *KNNInfo) distanceToAll(document *DocumentIndex, distances chan<- Docume
 	for docIndex != int32(math.MaxInt32) {
 		minDocIndex := int32(math.MaxInt32)
 		distance := float64(0)
+		advances := 0
 
 		for i := 0; i < numFeatures; i += 1 {
+			if currentPostingIndices[i] == -1 {
+				continue
+			}
+
 			posting := &postings[currentPostingIndices[i]]
+
+			if posting.Index < minDocIndex {
+				minDocIndex = posting.Index
+			}
+
 			if posting.Index == docIndex {
-				distance += square(k.value(i, posting.Count, nil) - docVec[i])
+				distance += square(k.value(i, posting.Count, k.documentIndex(docIndex)) - docVec[i])
 
 				currentPostingIndices[i] = posting.NextPostingIndex
-			}
-			if postings[currentPostingIndices[i]].Index < minDocIndex {
-				minDocIndex = postings[currentPostingIndices[i]].Index
+				advances += 1
 			}
 		}
 
-		distances <- DocumentDistance{
-			DocumentID: docIndex,
-			Distance:   distance,
+		if advances != 0 {
+			distances <- &DocumentDistance{
+				DocumentID: docIndex,
+				Distance:   distance,
+			}
 		}
 
 		docIndex = minDocIndex
+	}
+}
+
+func (k *KNNInfo) documentIndex(docID int32) *DocumentIndex {
+	return &DocumentIndex{
+		Postings:    k.Index.Forward.Postings,
+		PostingList: &k.Index.Forward.PostingLists[docID],
+		Length:      k.Index.Documents[docID].Length,
 	}
 }
 
@@ -212,7 +250,7 @@ func (k *KNNInfo) documentVector(document *DocumentIndex) []float64 {
 			postingIndex = document.Postings[postingIndex].NextPostingIndex
 		}
 
-		if document.Postings[postingIndex].Index == featureIndex {
+		if postingIndex >= 0 && document.Postings[postingIndex].Index == featureIndex {
 			docVec[i] = k.value(i, document.Postings[postingIndex].Count, document)
 		}
 	}

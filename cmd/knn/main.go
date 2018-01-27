@@ -92,7 +92,19 @@ func test(c *cli.Context) {
 	k := c.Int("k")
 
 	classifier := func(document *knn.DocumentIndex) []int32 {
-		return ki.ClassifyForward(document, k, numCPU)
+		forward := ki.ClassifyForward(document, k, numCPU)
+		inverse := ki.ClassifyInverse(document, k)
+
+		if len(forward) != len(inverse) {
+			panic("different number of classes for forward and inverse classifier")
+		}
+		for i := range forward {
+			if forward[i] != inverse[i] {
+				panic("different classes for forward and inverse classifier")
+			}
+		}
+
+		return inverse
 	}
 
 	knn.InteractiveTest(classifier, testSet)
