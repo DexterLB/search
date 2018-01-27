@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"time"
 
 	"github.com/DexterLB/search/indices"
 	"github.com/DexterLB/search/trie"
@@ -11,18 +12,25 @@ import (
 
 func InteractiveTest(classifier func(*DocumentIndex) []int32, testSet *indices.TotalIndex) {
 	total := &TestResult{}
+	var elapsed time.Duration
 	for docID := range testSet.Documents {
 		actualClasses := testSet.Documents[docID].Classes
+
+		start := time.Now()
 		resultClasses := classifier(&DocumentIndex{
 			Postings:    testSet.Forward.Postings,
 			PostingList: &testSet.Forward.PostingLists[docID],
 			Length:      testSet.Documents[docID].Length,
 		})
+		elapsed += time.Since(start)
 
 		total.Add(Compare(actualClasses, resultClasses, testSet.ClassNames))
 	}
 
+	avgElapsed := elapsed / time.Duration(len(testSet.Documents))
+
 	log.Printf("totals: %s", total)
+	log.Printf("classification took %s on average per document", avgElapsed)
 }
 
 type TestResult struct {

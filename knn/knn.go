@@ -213,12 +213,9 @@ func (k *KNNInfo) distanceToAll(document *DocumentIndex, distances chan<- *Docum
 
 			if posting.Index == docIndex {
 				distance += square(k.value(i, posting.Count, k.documentIndex(docIndex)) - docVec[i])
+				currentPostingIndices[i] = postings[currentPostingIndices[i]].NextPostingIndex
 			} else {
 				distance += square(docVec[i])
-			}
-
-			for currentPostingIndices[i] != -1 && postings[currentPostingIndices[i]].Index <= docIndex {
-				currentPostingIndices[i] = postings[currentPostingIndices[i]].NextPostingIndex
 			}
 
 			if currentPostingIndices[i] != -1 && postings[currentPostingIndices[i]].Index < minDocIndex {
